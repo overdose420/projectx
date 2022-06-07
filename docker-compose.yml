@@ -1,0 +1,103 @@
+version: '3.7'
+
+services:
+  laravel:
+    container_name: "laravel"
+    image: docker.io/bitnami/laravel:9
+    ports:
+      - 7777:8000
+    environment:
+      - DB_HOST=${LARAVEL_DB_HOST}
+      - DB_PORT=${LARAVEL_PORT}
+      - DB_USERNAME=${LARAVEL_USERNAME}
+      - DB_PASSWORD=${LARAVEL_PASSWORD}
+      - DB_DATABASE=${LARAVEL_DATABASE}
+    volumes:
+      - './laravel9:/app'
+    networks:
+        - postgres
+    depends_on:
+        - mysql
+  mysql:
+    container_name: "my-sql"
+    build:
+      context: .
+      dockerfile: ./docker/db.Dockerfile
+    networks:
+      - postgres
+    restart: always
+    ports:
+      - 3333:3350
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql/
+      - ./sql/create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql
+      - ./sql/insert_tables.sql:/docker-entrypoint-initdb.d/insert_tables.sql
+    command: --default-authentication-plugin=mysql_native_password
+  golang:
+    container_name:  "golang"
+    build:
+      context: .
+      dockerfile: ./docker/api.Dockerfile
+    ports:
+      - "2222:1150"
+    networks:
+      - postgres
+    volumes:
+      - .:/app/
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: "phpmyadmin"
+    environment:
+      PMA_HOST: mysql
+      PMA_ARBITRARY: 1
+    restart: always
+    depends_on:
+      - mysql
+    ports:
+      - 1111:80 
+    networks:
+      - postgres       
+  postgres:
+    image: postgres:14.3-alpine
+    container_name: "postgres"
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    ports:
+      - "5555:5554"
+    networks:
+      - postgres 
+    volumes: 
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql
+      - ./sql/insert_tables.sql:/docker-entrypoint-initdb.d/insert_tables.sql
+  pgadmin:
+    container_name: "pgadmin4"
+    image: dpage/pgadmin4
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_LISTEN_PORT: 75
+    ports:
+      - 4444:75
+
+    volumes:
+       - pgadmin:/var/lib/pgadmin  
+    networks:
+      - postgres     
+networks:
+  postgres:
+    driver: bridge
+volumes:
+  mysql_data:
+  postgres_data:
+  pgadmin:
+  phpmyadmin:

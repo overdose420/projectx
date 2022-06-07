@@ -1,0 +1,5 @@
+# .env
+database
+go.mod
+go.sum
+main
